@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Expense Tracker</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+        keyframes: {
+          slideIn: {
+            '0%':   { opacity: 0, transform: 'translateY(12px) scale(.97)' },
+            '100%': { opacity: 1, transform: 'translateY(0) scale(1)' }
+          },
+          pop: {
+            '0%':   { transform: 'scale(.85)' },
+            '60%':  { transform: 'scale(1.06)' },
+            '100%': { transform: 'scale(1)' }
+          }
+        },
+        animation: {
+          slideIn: 'slideIn .35s cubic-bezier(.21,1.02,.73,1) both',
+          pop: 'pop .3s ease-out'
+        }
+      }
+    }
+  };
+
+  // Apply saved theme before paint (prevents flash)
+  (function () {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+  })();
+</script>
+
+<style>
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: rgba(100,116,139,.45); border-radius: 999px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  .dark select option { background-color: #1e293b; color: #e2e8f0; }
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type=number] { -moz-appearance: textfield; }
+</style>
+</head>
+
+<body class="min-h-screen font-sans antialiased bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-300">
+
+  <!-- Decorative background blobs -->
+  <div class="pointer-events-none fixed inset-0 overflow-hidden -z-10">
+    <div class="absolute -top-32 -left-24 h-96 w-96 rounded-full bg-indigo-400/25 dark:bg-indigo-600/20 blur-3xl"></div>
+    <div class="absolute top-1/3 -right-28 h-96 w-96 rounded-full bg-violet-400/20 dark:bg-fuchsia-600/10 blur-3xl"></div>
+    <div class="absolute bottom-0 left-1/4 h-80 w-80 rounded-full bg-sky-400/15 dark:bg-sky-700/10 blur-3xl"></div>
+  </div>
+
+  <div class="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
+
+    <!-- ===== Header ===== -->
+    <header class="mb-7 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30">
+          <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>
+            <path d="M16 12h2"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight sm:text-2xl">Expense Tracker</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Keep an eye on your daily spending</p>
+        </div>
+      </div>
+
+      <button id="themeToggle" aria-label="Toggle theme"
+        class="group grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:scale-105 hover:text-indigo-600 hover:shadow-md active:scale-95 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-amber-300">
+        <!-- Sun -->
+        <svg id="iconSun" class="hidden h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4"/>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+        </svg>
+        <!-- Moon -->
+        <svg id="iconMoon" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/>
+        </svg>
+      </button>
+    </header>
+
+    <!-- ===== Summary Card ===== -->
+    <section class="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 p-6 text-white shadow-2xl shadow-indigo-500/25 dark:shadow-indigo-900/40">
+      <div class="absolute -right-10 -top-12 h-44 w-44 rounded-full bg-white/10 blur-2xl"></div>
+      <div class="absolute -bottom-14 left-1/3 h-44 w-44 rounded-full bg-white/10 blur-2xl"></div>
+
+      <div class="relative">
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-white/70">Total spent</p>
+        <p id="totalAmount" class="mt-1 text-4xl font-extrabold tracking-tight sm:text-[2.75rem]">$0.00</p>
+
+        <div class="mt-6 grid grid-cols-2 gap-3">
+          <div class="rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-inset ring-white/15 backdrop-blur-sm">
+            <p class="text-[11px] font-medium uppercase tracking-wide text-white/70">This month</p>
+            <p id="monthAmount" class="mt-0.5 text-lg font-bold">$0.00</p>
+          </div>
+          <div class="rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-inset ring-white/15 backdrop-blur-sm">
+            <p class="text-[11px] font-medium uppercase tracking-wide text-white/70">Transactions</p>
+            <p id="txCount" class="mt-0.5 text-lg font-bold">0</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Add Expense Form ===== -->
+    <section class="mb-6 rounded-3xl border border-slate-200/80 bg-white/80 p-5 shadow-sm backdrop-blur-xl transition-colors dark:border-slate-800 dark:bg-slate-900/70">
+      <h2 class="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <svg class="h-4 w-4 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Add new expense
+      </h2>
+
+      <form id="expenseForm" class="space-y-3" autocomplete="off">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <input id="description" name="description" type="text" required maxlength="60"
+            placeholder="What did you buy?"
+            class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 dark:border-slate-700/70 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder-slate-500" />
+
+          <div class="relative">
+            <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400 dark:text-slate-500">$</span>
+            <input id="amount" name="amount" type="number" step="0.01" min="0.01" required
+              placeholder="0.00"
+              class="w-full rounded-xl border border-slate-200 bg-white py-3 pl-8 pr-4 text-sm font-medium text-slate-800 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 dark:border-slate-700/70 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder-slate-500" />
+          </div>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-[1fr_auto]">
+          <div class="relative">
+            <select id="category" name="category"
+              class="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 dark:border-slate-700/70 dark:bg-slate-800/60 dark:text-slate-100"></select>
+            <svg class="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+
+          <button type="submit"
+            class="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:shadow-xl hover:shadow-indigo-500/35 hover:brightness-110 active:scale-[.97]">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Add
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ===== Transactions ===== -->
+    <section>
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          Recent transactions
+        </h2>
+
+        <div class="flex items-center gap-2">
+          <div class="relative">
+            <svg class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="search" type="text" placeholder="Search..."
+              class="w-40 rounded-xl border border-slate-200 bg-white py-2 pl-8 pr-3 text-xs text-slate-700 placeholder-slate-400 outline-none transition focus:w-48 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:placeholder-slate-500" />
+          </div>
+
+          <button id="clearAll"
+            class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500 transition hover:border-rose-300 hover:text-rose-500 active:scale-95 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-rose-500/50 dark:hover:text-rose-400">
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <ul id="list" class="space-y-2.5"></ul>
+    </section>
+
+    <footer class="mt-10 text-center text-[11px] text-slate-400 dark:text-slate-600">
+      Data is saved locally in your browser.
+    </footer>
+  </div>
+
+
+
+
+
+
+
+
+
+<script>
+/* ============================================================
+   Categories
+============================================================ */
+const CATEGORIES = {
+  food:          { label: 'Food',          emoji: '🍔', badge: 'bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400' },
+  transport:     { label: 'Transport',     emoji: '🚗', badge: 'bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-400' },
+  shopping:      { label: 'Shopping',      emoji: '🛍️', badge: 'bg-pink-100 text-pink-600 dark:bg-pink-500/15 dark:text-pink-400' },
+  bills:         { label: 'Bills',         emoji: '🏠', badge: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400' },
+  entertainment: { label: 'Entertainment', emoji: '🎬', badge: 'bg-purple-100 text-purple-600 dark:bg-purple-500/15 dark:text-purple-400' },
+  health:        { label: 'Health',        emoji: '💊', badge: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400' },
+  other:         { label: 'Other',         emoji: '📦', badge: 'bg-slate-100 text-slate-600 dark:bg-slate-500/15 dark:text-slate-400' }
+};
+
+/* ============================================================
+   Elements
+============================================================ */
+const $ = (sel) => document.querySelector(sel);
+
+const form        = $('#expenseForm');
+const descInput   = $('#description');
+const amountInput = $('#amount');
+const catSelect   = $('#category');
+const listEl      = $('#list');
+const searchEl    = $('#search');
+const totalEl     = $('#totalAmount');
+const monthEl     = $('#monthAmount');
+const countEl     = $('#txCount');
+const clearBtn    = $('#clearAll');
+const themeToggle = $('#themeToggle');
+const iconSun     = $('#iconSun');
+const iconMoon    = $('#iconMoon');
+
+/* ============================================================
+   State
+============================================================ */
+let expenses = load();
+
+function load() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('expenses') || '[]');
+    return Array.isArray(raw) ? raw : [];
+  } catch { return []; }
+}
+function save() {
+  localStorage.setItem('expenses', JSON.stringify(expenses));
+}
+
+/* ============================================================
+   Helpers
+============================================================ */
+const uid = () =>
+  (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+
+const money = (n) =>
+  '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const escapeHTML = (str) =>
+  str.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const sameDay = (a, b) => a.toDateString() === b.toDateString();
+  if (sameDay(d, today)) return 'Today';
+  if (sameDay(d, yesterday)) return 'Yesterday';
+
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/* ============================================================
+   Build category <select>
+============================================================ */
+catSelect.innerHTML = Object.entries(CATEGORIES)
+  .map(([key, c]) => `<option value="${key}">${c.emoji}  ${c.label}</option>`)
+  .join('');
+
+/* ============================================================
+   Render
+============================================================ */
+function render() {
+  const query = searchEl.value.trim().toLowerCase();
+
+  const filtered = expenses.filter((e) => {
+    const cat = CATEGORIES[e.category] || CATEGORIES.other;
+    return (
+      e.description.toLowerCase().includes(query) ||
+      cat.label.toLowerCase().includes(query)
+    );
+  });
+
+  /* ---- Stats ---- */
+  const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const now = new Date();
+  const monthTotal = expenses
+    .filter((e) => {
+      const d = new Date(e.date);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    })
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  totalEl.textContent = money(total);
+  monthEl.textContent = money(monthTotal);
+  countEl.textContent = expenses.length;
+
+  /* ---- List ---- */
+  if (filtered.length === 0) {
+    listEl.innerHTML = `
+      <li class="animate-pop rounded-3xl border border-dashed border-slate-300 bg-white/60 px-6 py-14 text-center dark:border-slate-800 dark:bg-slate-900/40">
+        <div class="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-slate-100 text-2xl dark:bg-slate-800">
+          ${expenses.length === 0 ? '💸' : '🔍'}
+        </div>
+        <p class="text-sm font-semibold text-slate-600 dark:text-slate-300">
+          ${expenses.length === 0 ? 'No expenses yet' : 'No matching results'}
+        </p>
+        <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">
+          ${expenses.length === 0 ? 'Add your first expense above to get started.' : 'Try a different search term.'}
+        </p>
+      </li>`;
+    return;
+  }
+
+  listEl.innerHTML = filtered
+    .map((e, i) => {
+      const cat = CATEGORIES[e.category] || CATEGORIES.other;
+      return `
+      <li class="group flex items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:hover:shadow-black/40 sm:gap-4 sm:p-4 animate-slideIn"
+          style="animation-delay:${Math.min(i * 35, 300)}ms">
+        <div class="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-lg ${cat.badge}">
+          ${cat.emoji}
+        </div>
+
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">${escapeHTML(e.description)}</p>
+          <p class="mt-0.5 text-[11px] font-medium text-slate-400 dark:text-slate-500">
+            ${cat.label} · ${formatDate(e.date)}
+          </p>
+        </div>
+
+        <p class="shrink-0 text-sm font-bold text-slate-800 dark:text-slate-100">−${money(e.amount)}</p>
+
+        <button data-id="${e.id}" aria-label="Delete expense"
+          class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-300 transition-all hover:bg-rose-50 hover:text-rose-500 active:scale-90 dark:text-slate-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 sm:opacity-0 sm:group-hover:opacity-100">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/>
+          </svg>
+        </button>
+      </li>`;
+    })
+    .join('');
+}
+
+/* ============================================================
+   Actions
+============================================================ */
+form.addEventListener('submit', (ev) => {
+  ev.preventDefault();
+
+  const description = descInput.value.trim();
+  const amount = parseFloat(amountInput.value);
+  const category = catSelect.value;
+
+  if (!description || !Number.isFinite(amount) || amount <= 0) return;
+
+  expenses.unshift({
+    id: uid(),
+    description,
+    amount: Math.round(amount * 100) / 100,
+    category,
+    date: new Date().toISOString()
+  });
+
+  save();
+  render();
+
+  form.reset();
+  catSelect.value = category;
+  descInput.focus();
+});
+
+listEl.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button[data-id]');
+  if (!btn) return;
+
+  const id = btn.dataset.id;
+  const item = btn.closest('li');
+
+  item.style.transition = 'all .22s ease';
+  item.style.opacity = '0';
+  item.style.transform = 'translateX(24px)';
+
+  setTimeout(() => {
+    expenses = expenses.filter((e) => e.id !== id);
+    save();
+    render();
+  }, 200);
+});
+
+clearBtn.addEventListener('click', () => {
+  if (expenses.length === 0) return;
+  if (!confirm('Delete all expenses? This cannot be undone.')) return;
+  expenses = [];
+  save();
+  render();
+});
+
+searchEl.addEventListener('input', render);
+
+/* ============================================================
+   Theme toggle
+============================================================ */
+function syncThemeIcon() {
+  const isDark = document.documentElement.classList.contains('dark');
+  iconSun.classList.toggle('hidden', !isDark);
+  iconMoon.classList.toggle('hidden', isDark);
+}
+
+themeToggle.addEventListener('click', () => {
+  const isDark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  syncThemeIcon();
+});
+
+/* ============================================================
+   Init
+============================================================ */
+syncThemeIcon();
+render();
+</script>
+</body>
+</html>
